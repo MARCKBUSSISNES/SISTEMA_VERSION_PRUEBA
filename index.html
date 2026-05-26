@@ -321,6 +321,70 @@ body.login-locked .login-screen{display:flex;}
   .license-actions{grid-template-columns:1fr;}
 }
 
+
+
+/* ===== MODALES PERSONALIZADOS ===== */
+.mb-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:100000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(0,0,0,.72);
+}
+.mb-modal-backdrop.open{display:flex;}
+.mb-modal{
+  width:100%;
+  max-width:420px;
+  background:#0d1b2a;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:22px;
+  padding:22px;
+  box-shadow:0 24px 80px rgba(0,0,0,.7);
+  color:#fff;
+}
+.mb-modal-logo{text-align:center;margin-bottom:12px;}
+.mb-modal-logo img{max-width:130px;max-height:82px;object-fit:contain;}
+.mb-modal-title{
+  color:#25D366;
+  font-size:22px;
+  font-weight:900;
+  text-align:center;
+  margin-bottom:8px;
+}
+.mb-modal-message{
+  color:#dbeafe;
+  font-size:14px;
+  line-height:1.45;
+  text-align:center;
+  margin-bottom:14px;
+  white-space:pre-wrap;
+}
+.mb-modal-input{
+  width:100%;
+  padding:14px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  outline:none;
+  background:#081523;
+  color:#fff;
+  box-sizing:border-box;
+  margin:4px 0 14px;
+  font-family:'Roboto Mono', monospace;
+}
+.mb-modal-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.mb-modal-actions.single{grid-template-columns:1fr;}
+.mb-modal-actions button{width:100%;}
+@media (max-width:520px){
+  .mb-modal-actions{grid-template-columns:1fr;}
+}
+
 </style>
 </head>
 
@@ -618,7 +682,90 @@ body.login-locked .login-screen{display:flex;}
   <div class="footer">MarckBusiness © 2026 — Todos los derechos reservados</div>
 </div>
 
+
+
+<!-- ===================== MODALES PERSONALIZADOS ===================== -->
+<div id="mbModal" class="mb-modal-backdrop" aria-hidden="true">
+  <div class="mb-modal" role="dialog" aria-modal="true">
+    <div class="mb-modal-logo">
+      <img src="LOGO1.png" alt="Logo Marck Business" onerror="this.style.display='none'">
+    </div>
+    <div id="mbModalTitle" class="mb-modal-title">Marck Business</div>
+    <div id="mbModalMessage" class="mb-modal-message"></div>
+    <input id="mbModalInput" class="mb-modal-input" type="text" autocomplete="off">
+    <div id="mbModalActions" class="mb-modal-actions">
+      <button id="mbModalCancel" class="ghost">Cancelar</button>
+      <button id="mbModalOk">Aceptar</button>
+    </div>
+  </div>
+</div>
+
 <script>
+
+
+/* ==========================
+   MODALES PERSONALIZADOS
+========================== */
+function mbOpenModal({title='Marck Business', message='', type='alert', inputType='text', placeholder='', defaultValue=''}) {
+  return new Promise((resolve)=>{
+    const modal = document.getElementById('mbModal');
+    const titleEl = document.getElementById('mbModalTitle');
+    const msgEl = document.getElementById('mbModalMessage');
+    const inputEl = document.getElementById('mbModalInput');
+    const actionsEl = document.getElementById('mbModalActions');
+    const okBtn = document.getElementById('mbModalOk');
+    const cancelBtn = document.getElementById('mbModalCancel');
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    inputEl.value = defaultValue || '';
+    inputEl.type = inputType || 'text';
+    inputEl.placeholder = placeholder || '';
+    inputEl.style.display = type === 'prompt' ? 'block' : 'none';
+    cancelBtn.style.display = type === 'alert' ? 'none' : 'block';
+    actionsEl.classList.toggle('single', type === 'alert');
+    okBtn.textContent = type === 'alert' ? 'Aceptar' : (type === 'prompt' ? 'Continuar' : 'Sí');
+    cancelBtn.textContent = 'Cancelar';
+
+    function close(value){
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden','true');
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      document.removeEventListener('keydown', onKey);
+      resolve(value);
+    }
+
+    function onKey(e){
+      if(e.key === 'Escape') close(type === 'alert' ? true : null);
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        close(type === 'prompt' ? inputEl.value : true);
+      }
+    }
+
+    okBtn.onclick = ()=> close(type === 'prompt' ? inputEl.value : true);
+    cancelBtn.onclick = ()=> close(type === 'confirm' ? false : null);
+    document.addEventListener('keydown', onKey);
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+    setTimeout(()=> type === 'prompt' ? inputEl.focus() : okBtn.focus(), 50);
+  });
+}
+
+function mbAlert(message, title='Marck Business'){
+  return mbOpenModal({title, message, type:'alert'});
+}
+
+function mbConfirm(message, title='Confirmar'){
+  return mbOpenModal({title, message, type:'confirm'});
+}
+
+function mbPrompt(message, defaultValue='', title='Código requerido', inputType='text'){
+  return mbOpenModal({title, message, type:'prompt', defaultValue, inputType});
+}
+
 
 /* ==========================
    LICENCIA / ACTIVACIÓN POR PC
@@ -767,8 +914,8 @@ function initLicenseGate(){
     licenseMsg.className = "license-msg license-ok";
   };
 
-  resetDeviceBtn.onclick = ()=>{
-    if(!confirm("¿Regenerar el ID? La licencia actual dejará de funcionar.")) return;
+  resetDeviceBtn.onclick = async ()=>{
+    if(!await mbConfirm("¿Regenerar el ID? La licencia actual dejará de funcionar.")) return;
     localStorage.removeItem(KEY_DEVICE_ID);
     localStorage.removeItem(KEY_LICENSE);
     localStorage.removeItem(KEY_ACTIVATED);
@@ -846,8 +993,32 @@ function initLoginGate(){
     if(e.key === "Enter") doLogin();
   });
 }
-function desactivarLicencia(){
-  if(!confirm("¿Desactivar licencia de esta instalación?")) return;
+
+function cerrarSesionLogin(){
+  sessionStorage.removeItem(KEY_LOGIN_OK);
+  document.body.classList.add("login-locked");
+  const loginCodeInput = document.getElementById("loginCodeInput");
+  const loginMsg = document.getElementById("loginMsg");
+  if(loginCodeInput){
+    loginCodeInput.value = "";
+    setTimeout(()=>loginCodeInput.focus(), 50);
+  }
+  if(loginMsg){
+    loginMsg.textContent = "SesiÃ³n cerrada. Ingresa el cÃ³digo nuevamente.";
+    loginMsg.className = "license-msg";
+  }
+}
+
+document.addEventListener("keydown", (e)=>{
+  if(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "l"){
+    e.preventDefault();
+    cerrarSesionLogin();
+  }
+});
+
+window.cerrarSesionLogin = cerrarSesionLogin;
+async function desactivarLicencia(){
+  if(!await mbConfirm("¿Desactivar licencia de esta instalación?")) return;
   localStorage.removeItem(KEY_LICENSE);
   localStorage.removeItem(KEY_ACTIVATED);
   localStorage.removeItem(KEY_LICENSE_STARTED);
@@ -1086,11 +1257,11 @@ function renderCategories(){
   }
 }
 
-function deleteCategory(cat){
+async function deleteCategory(cat){
   if(!cat || cat==='General') return;
-  const code = prompt('Ingrese código para borrar categoría:');
-  if(code !== '3336'){ alert('Código incorrecto'); return; }
-  if(!confirm(`Borrar categoría "${cat}"? Los productos pasarán a General.`)) return;
+  const code = await mbPrompt('Ingrese código para borrar categoría:', '', 'Código requerido', 'password');
+  if(code !== '3336'){ await mbAlert('Código incorrecto'); return; }
+  if(!await mbConfirm(`Borrar categoría "${cat}"? Los productos pasarán a General.`)) return;
   products.forEach(p=>{ if(p.category===cat) p.category='General'; });
   categories = categories.filter(c=>c!==cat);
   saveProducts(); saveCategories();
@@ -1100,10 +1271,10 @@ function deleteCategory(cat){
 window.deleteCategory = deleteCategory;
 
 if(addCategoryBtn){
-  addCategoryBtn.onclick = ()=>{
+  addCategoryBtn.onclick = async ()=>{
     const name = categoryName.value.trim();
-    if(!name){ alert('Escribe el nombre de la categoría'); return; }
-    if(categories.some(c=>c.toLowerCase()===name.toLowerCase())){ alert('Esa categoría ya existe'); return; }
+    if(!name){ await mbAlert('Escribe el nombre de la categoría'); return; }
+    if(categories.some(c=>c.toLowerCase()===name.toLowerCase())){ await mbAlert('Esa categoría ya existe'); return; }
     categories.push(name);
     saveCategories();
     categoryName.value='';
@@ -1119,7 +1290,7 @@ if(p_image){
       selectedProductImage = await resizeImageFile(file);
       setImagePreview(selectedProductImage);
     }catch(e){
-      alert('No se pudo cargar la imagen. Prueba con otra foto.');
+      await mbAlert('No se pudo cargar la imagen. Prueba con otra foto.');
     }
   });
 }
@@ -1218,7 +1389,7 @@ function renderProducts(){
   }
 }
 
-addProductBtn.onclick = ()=>{
+addProductBtn.onclick = async ()=>{
   const name = p_name.value.trim();
   const cost = parseFloat(p_cost.value)||0;
   const price = parseFloat(p_price.value)||0;
@@ -1226,13 +1397,13 @@ addProductBtn.onclick = ()=>{
   const category = (p_category && p_category.value) ? p_category.value : 'General';
   const image = selectedProductImage || (editingIndex !== null && products[editingIndex] ? products[editingIndex].image : '');
 
-  if(!name){ alert('Nombre requerido'); return; }
-  if(cost < 0 || price < 0 || stock < 0){ alert('Datos inválidos'); return; }
+  if(!name){ await mbAlert('Nombre requerido'); return; }
+  if(cost < 0 || price < 0 || stock < 0){ await mbAlert('Datos inválidos'); return; }
 
   // Si está en modo edición: pedir 3336 y guardar cambios
   if(editingIndex !== null){
-    const code = prompt("Ingrese código para guardar cambios:");
-    if(code !== '3336'){ alert("Código incorrecto"); return; }
+    const code = await mbPrompt("Ingrese código para guardar cambios:", "", "Código requerido", "password");
+    if(code !== '3336'){ await mbAlert("Código incorrecto"); return; }
 
     products[editingIndex] = {
       ...products[editingIndex],
@@ -1241,7 +1412,7 @@ addProductBtn.onclick = ()=>{
     saveProducts();
     renderProducts();
     resetProductForm();
-    alert("Producto actualizado.");
+    await mbAlert("Producto actualizado.");
     return;
   }
 
@@ -1251,33 +1422,33 @@ addProductBtn.onclick = ()=>{
   resetProductForm();
 };
 
-clearProductsBtn.onclick = ()=>{
-  const code = prompt("Ingrese código para borrar productos:");
+clearProductsBtn.onclick = async ()=>{
+  const code = await mbPrompt("Ingrese código para borrar productos:", "", "Código requerido", "password");
   if(code==='3336'){
-    if(confirm('Borrar todos los productos?')){
+    if(await mbConfirm('¿Borrar todos los productos?')){
       products=[]; saveProducts(); renderProducts();
       resetProductForm();
     }
-  } else { alert("Código incorrecto"); }
+  } else { await mbAlert("Código incorrecto"); }
 };
 
-function deleteProduct(idx){
-  const code = prompt("Ingrese código para borrar producto:");
+async function deleteProduct(idx){
+  const code = await mbPrompt("Ingrese código para borrar producto:", "", "Código requerido", "password");
   if(code==='3336'){
     products.splice(idx,1);
     saveProducts();
     renderProducts();
     if(editingIndex === idx){ resetProductForm(); }
     else if(editingIndex !== null && idx < editingIndex){ editingIndex -= 1; }
-  } else { alert("Código incorrecto"); }
+  } else { await mbAlert("Código incorrecto"); }
 }
 window.deleteProduct = deleteProduct;
 
 /* ===== EDITAR PRODUCTO (carga al formulario, pide 3336) ===== */
-function editProduct(idx){
-  const code = prompt("Ingrese código para editar producto:");
+async function editProduct(idx){
+  const code = await mbPrompt("Ingrese código para editar producto:", "", "Código requerido", "password");
   if(code !== '3336'){
-    alert("Código incorrecto");
+    await mbAlert("Código incorrecto");
     return;
   }
 
@@ -1303,21 +1474,21 @@ function editProduct(idx){
 window.editProduct = editProduct;
 
 /* ===== AGREGAR STOCK (pide 3336) ===== */
-function restockProduct(idx){
-  const code = prompt("Ingrese código para agregar stock:");
+async function restockProduct(idx){
+  const code = await mbPrompt("Ingrese código para agregar stock:", "", "Código requerido", "password");
   if(code !== '3336'){
-    alert("Código incorrecto");
+    await mbAlert("Código incorrecto");
     return;
   }
-  const qty = parseInt(prompt("¿Cuánto stock desea agregar? (Ej: 10)"), 10);
+  const qty = parseInt(await mbPrompt("¿Cuánto stock desea agregar? (Ej: 10)", "", "Agregar stock", "number"), 10);
   if(!Number.isFinite(qty) || qty <= 0){
-    alert("Cantidad inválida");
+    await mbAlert("Cantidad inválida");
     return;
   }
   products[idx].stock = (parseInt(products[idx].stock,10) || 0) + qty;
   saveProducts();
   renderProducts();
-  alert(`Stock actualizado: ${products[idx].name} = ${products[idx].stock}`);
+  await mbAlert(`Stock actualizado: ${products[idx].name} = ${products[idx].stock}`);
 }
 window.restockProduct = restockProduct;
 
@@ -1346,12 +1517,12 @@ function renderCart(){
   cartTotalEl.textContent = formatQ(total);
 }
 
-function addToCart(idx, qty){
+async function addToCart(idx, qty){
   const prod = products[idx];
-  if(prod.stock===0){alert('Sin stock'); return;}
+  if(prod.stock===0){ await mbAlert('Sin stock'); return;}
   const exist = cart.find(c=>c.idx===idx);
   if(exist){
-    if(exist.qty+qty>prod.stock){alert('No hay suficiente stock'); return;}
+    if(exist.qty+qty>prod.stock){ await mbAlert('No hay suficiente stock'); return;}
     exist.qty += qty;
   }else{
     cart.push({
@@ -1366,11 +1537,11 @@ function addToCart(idx, qty){
 }
 window.addToCart = addToCart;
 
-addFilterBtn.onclick = ()=>{
+addFilterBtn.onclick = async ()=>{
   const name = filterInput.value.trim();
   const qty = parseInt(filterQty.value)||1;
   const idx = products.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
-  if(idx===-1){ alert('Producto no encontrado'); return; }
+  if(idx===-1){ await mbAlert('Producto no encontrado'); return; }
   addToCart(idx, qty);
   filterInput.value=''; filterQty.value='1';
 };
@@ -1386,7 +1557,7 @@ productSelect.addEventListener('change', ()=>{
 function removeFromCart(i){ cart.splice(i,1); renderCart(); }
 window.removeFromCart = removeFromCart;
 
-clearCartBtn.onclick = ()=>{ if(confirm('Limpiar carrito?')){ cart=[]; renderCart(); } };
+clearCartBtn.onclick = async ()=>{ if(await mbConfirm('¿Limpiar carrito?')){ cart=[]; renderCart(); } };
 
 /* ===== REGISTRO DIARIO ===== */
 function salesOfDay(dayKey){
@@ -1455,13 +1626,13 @@ salesDateEl.addEventListener('change', ()=>{
 });
 
 /* Borrar ventas */
-deleteSalesBtn.onclick = ()=>{
-  const code = prompt("Ingrese código para borrar ventas:");
+deleteSalesBtn.onclick = async ()=>{
+  const code = await mbPrompt("Ingrese código para borrar ventas:", "", "Código requerido", "password");
   if(code==='3336'){
-    if(confirm('Borrar todas las ventas?')){
+    if(await mbConfirm('¿Borrar todas las ventas?')){
       sales=[]; saveSales(); renderSales(); renderCloseResult();
     }
-  } else { alert("Código incorrecto"); }
+  } else { await mbAlert("Código incorrecto"); }
 };
 
 /* Export inventario PDF */
@@ -1506,8 +1677,8 @@ exportDailyBtn.onclick = ()=>{
 };
 
 /* ===== COBRO + TICKET (Carta) ===== */
-payBtn.onclick = ()=>{
-  if(cart.length===0){alert('Carrito vacío'); return;}
+payBtn.onclick = async ()=>{
+  if(cart.length===0){ await mbAlert('Carrito vacío'); return;}
 
   const client = clientNameEl.value.trim();
   const method = (payMethodEl.value || 'EFECTIVO').toUpperCase();
@@ -1517,12 +1688,16 @@ payBtn.onclick = ()=>{
   let totalVenta=0;
   let totalCost=0;
 
-  const ventaItems = cart.map(item=>{
+  for(const item of cart){
     const prod = products[item.idx];
     if(item.qty>prod.stock){
-      alert(`Stock insuficiente: ${prod.name}`);
-      return null;
+      await mbAlert(`Stock insuficiente: ${prod.name}`);
+      return;
     }
+  }
+
+  const ventaItems = cart.map(item=>{
+    const prod = products[item.idx];
     prod.stock -= item.qty;
 
     totalVenta += item.qty * item.price;
@@ -1559,7 +1734,7 @@ payBtn.onclick = ()=>{
   generateTicket80mm(ventaItems, totalVenta, client, currentTicket, method);
 };
 
-function generateTicket80mm(items,total,client,ticketNo,method){
+async function generateTicket80mm(items,total,client,ticketNo,method){
   const rows = items.map(item=>`
     <tr>
       <td class="qty">${item.qty}</td>
@@ -1613,7 +1788,7 @@ function generateTicket80mm(items,total,client,ticketNo,method){
 
   const w = window.open('', '_blank', 'width=380,height=650');
   if(!w){
-    alert('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sistema.');
+    await mbAlert('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sistema.');
     return;
   }
   w.document.open();
