@@ -203,7 +203,10 @@ input[type=file]{width:100%;padding:10px;margin:6px 0 12px 0;border-radius:10px;
 /* ===== ACTIVACIÓN / LICENCIA POR PC ===== */
 body.locked .logo-header,
 body.locked .topbar,
-body.locked .shell{
+body.locked .shell,
+body.login-locked .logo-header,
+body.login-locked .topbar,
+body.login-locked .shell{
   display:none !important;
 }
 .license-screen{
@@ -219,6 +222,19 @@ body.locked .shell{
     linear-gradient(180deg,#06101b,#081523,#050b12);
 }
 body.locked .license-screen{display:flex;}
+.login-screen{
+  position:fixed;
+  inset:0;
+  z-index:99998;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:
+    radial-gradient(circle at top,#12345655,transparent 35%),
+    linear-gradient(180deg,#06101b,#081523,#050b12);
+}
+body.login-locked .login-screen{display:flex;}
 .license-card{
   width:100%;
   max-width:460px;
@@ -341,6 +357,25 @@ body.locked .license-screen{display:flex;}
   </div>
 </div>
 
+<!-- ===================== LOGIN DE INGRESO ===================== -->
+<div id="loginScreen" class="login-screen">
+  <div class="license-card">
+    <div class="license-logo">
+      <img src="LOGO1.png" alt="Logo Marck Business" onerror="this.style.display='none'">
+    </div>
+    <div class="license-title">Ingreso al sistema</div>
+    <div class="license-sub">
+      Ingresa el cÃ³digo de acceso para entrar al sistema.
+    </div>
+
+    <input id="loginCodeInput" type="password" placeholder="CÃ³digo de ingreso" autocomplete="off">
+
+    <button id="loginBtn" class="big-button">Ingresar</button>
+
+    <div id="loginMsg" class="license-msg"></div>
+    <div class="license-info">MarckBusiness Â© 2026</div>
+  </div>
+</div>
 <div class="logo-header">
   <img src="LOGO1.png" alt="Logo del sistema">
   <span class="logo-name">Version de prueba (2 dias).</span>
@@ -597,6 +632,8 @@ const KEY_LICENSE_STARTED = "mb_license_started_at";
 const KEY_LICENSE_EXPIRED = "mb_license_expired";
 const LICENSE_DAYS = 2;
 const LICENSE_MS = LICENSE_DAYS * 24 * 60 * 60 * 1000;
+const LOGIN_CODE = "3336";
+const KEY_LOGIN_OK = "mb_login_ok";
 
 function simpleHashLicense(deviceId){
   let hash = 0;
@@ -671,11 +708,18 @@ function isLicenseValid(){
 function unlockSystem(){
   document.body.classList.remove("locked");
   localStorage.setItem(KEY_ACTIVATED, "1");
+  if(sessionStorage.getItem(KEY_LOGIN_OK) === "1"){
+    document.body.classList.remove("login-locked");
+  }else{
+    document.body.classList.add("login-locked");
+  }
 }
 
 function lockSystem(){
   document.body.classList.add("locked");
+  document.body.classList.remove("login-locked");
   localStorage.removeItem(KEY_ACTIVATED);
+  sessionStorage.removeItem(KEY_LOGIN_OK);
 }
 
 function copyText(txt){
@@ -764,7 +808,44 @@ function initLicenseGate(){
 }
 
 initLicenseGate();
+initLoginGate();
 
+
+function initLoginGate(){
+  const loginCodeInput = document.getElementById("loginCodeInput");
+  const loginBtn = document.getElementById("loginBtn");
+  const loginMsg = document.getElementById("loginMsg");
+
+  if(!loginCodeInput || !loginBtn || !loginMsg) return;
+
+  function doLogin(){
+    const code = (loginCodeInput.value || "").trim();
+
+    if(!code){
+      loginMsg.textContent = "Ingresa el cÃ³digo de acceso.";
+      loginMsg.className = "license-msg";
+      return;
+    }
+
+    if(code !== LOGIN_CODE){
+      loginMsg.textContent = "CÃ³digo incorrecto.";
+      loginMsg.className = "license-msg";
+      loginCodeInput.value = "";
+      loginCodeInput.focus();
+      return;
+    }
+
+    sessionStorage.setItem(KEY_LOGIN_OK, "1");
+    document.body.classList.remove("login-locked");
+    loginMsg.textContent = "Ingreso correcto.";
+    loginMsg.className = "license-msg license-ok";
+  }
+
+  loginBtn.onclick = doLogin;
+  loginCodeInput.addEventListener("keydown", (e)=>{
+    if(e.key === "Enter") doLogin();
+  });
+}
 function desactivarLicencia(){
   if(!confirm("¿Desactivar licencia de esta instalación?")) return;
   localStorage.removeItem(KEY_LICENSE);
