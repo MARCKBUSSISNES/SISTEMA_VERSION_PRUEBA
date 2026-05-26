@@ -593,6 +593,10 @@ const LICENSE_SECRET = "MARCKBUSINESS2026";
 const KEY_DEVICE_ID = "mb_license_device_id";
 const KEY_LICENSE = "mb_license_key";
 const KEY_ACTIVATED = "mb_license_activated";
+const KEY_LICENSE_STARTED = "mb_license_started_at";
+const KEY_LICENSE_EXPIRED = "mb_license_expired";
+const LICENSE_DAYS = 2;
+const LICENSE_MS = LICENSE_DAYS * 24 * 60 * 60 * 1000;
 
 function simpleHashLicense(deviceId){
   let hash = 0;
@@ -638,7 +642,30 @@ function getDeviceId(){
 function isLicenseValid(){
   const deviceId = getDeviceId();
   const savedLicense = (localStorage.getItem(KEY_LICENSE) || "").trim().toUpperCase();
-  return savedLicense && savedLicense === simpleHashLicense(deviceId);
+
+  // 1) Validar que la licencia corresponda a esta PC
+  if(!savedLicense || savedLicense !== simpleHashLicense(deviceId)){
+    return false;
+  }
+
+  // 2) Validar caducidad: 2 días desde que se activó
+  const startedAt = parseInt(localStorage.getItem(KEY_LICENSE_STARTED) || "0", 10);
+  if(!startedAt){
+    return false;
+  }
+
+  const now = Date.now();
+  const expiresAt = startedAt + LICENSE_MS;
+
+  if(now > expiresAt){
+    localStorage.removeItem(KEY_LICENSE);
+    localStorage.removeItem(KEY_ACTIVATED);
+    localStorage.removeItem(KEY_LICENSE_STARTED);
+    localStorage.setItem(KEY_LICENSE_EXPIRED, "1");
+    return false;
+  }
+
+  return true;
 }
 
 function unlockSystem(){
@@ -683,6 +710,11 @@ function initLicenseGate(){
     unlockSystem();
   }else{
     lockSystem();
+    const wasExpired = localStorage.getItem(KEY_LICENSE_EXPIRED);
+    if(wasExpired && licenseMsg){
+      licenseMsg.textContent = "La licencia venció. Genera una nueva licencia para esta PC.";
+      licenseMsg.className = "license-msg";
+    }
   }
 
   copyDeviceBtn.onclick = async ()=>{
@@ -696,6 +728,8 @@ function initLicenseGate(){
     localStorage.removeItem(KEY_DEVICE_ID);
     localStorage.removeItem(KEY_LICENSE);
     localStorage.removeItem(KEY_ACTIVATED);
+    localStorage.removeItem(KEY_LICENSE_STARTED);
+    localStorage.removeItem(KEY_LICENSE_EXPIRED);
     const newId = getDeviceId();
     deviceIdText.textContent = newId;
     licenseInput.value = "";
@@ -721,8 +755,10 @@ function initLicenseGate(){
     }
 
     localStorage.setItem(KEY_LICENSE, license);
+    localStorage.setItem(KEY_LICENSE_STARTED, String(Date.now()));
+    localStorage.removeItem(KEY_LICENSE_EXPIRED);
     unlockSystem();
-    licenseMsg.textContent = "Sistema activado correctamente.";
+    licenseMsg.textContent = "Sistema activado correctamente. Esta licencia vence en 2 días.";
     licenseMsg.className = "license-msg license-ok";
   };
 }
@@ -733,6 +769,8 @@ function desactivarLicencia(){
   if(!confirm("¿Desactivar licencia de esta instalación?")) return;
   localStorage.removeItem(KEY_LICENSE);
   localStorage.removeItem(KEY_ACTIVATED);
+  localStorage.removeItem(KEY_LICENSE_STARTED);
+  localStorage.removeItem(KEY_LICENSE_EXPIRED);
   lockSystem();
 }
 window.desactivarLicencia = desactivarLicencia;
